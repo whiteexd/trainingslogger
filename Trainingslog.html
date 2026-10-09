@@ -32,13 +32,13 @@ h1{font:700 40px/1 "Barlow Condensed","Arial Narrow",sans-serif;letter-spacing:.
 .ex h2{font:600 24px/1.1 "Barlow Condensed",sans-serif;letter-spacing:.3px;margin:0 0 10px}
 .hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}.hd h2{margin:0}.hd .btn{min-width:56px;padding:7px 12px}
 .hd+.cv{color:var(--accTx);font-size:14px;font-weight:600}.hd+.cv+.cv{font-size:14px}
-.set{display:grid;grid-template-columns:22px 1fr 12px 1fr 42px;gap:8px;align-items:start;margin-bottom:8px}
+.set{display:grid;grid-template-columns:18px 1fr 8px 1fr 38px;gap:6px;align-items:start;margin-bottom:8px}
 .set span{color:var(--mut);padding-top:13px;font-size:15px;text-align:center}
 .set i{font-style:normal;color:var(--mut);text-align:center;padding-top:12px}
 input,textarea,select{font:inherit;color:var(--ink);background:var(--field);border:1px solid transparent;border-radius:12px;padding:12px;width:100%;outline:0;transition:border-color .15s,background .15s}
 input:focus,textarea:focus,select:focus{border-color:var(--accTx);background:rgba(255,255,255,.14)}
 input::placeholder,textarea::placeholder{color:rgba(244,244,241,.4)}
-.set input{text-align:center;font-size:20px;font-weight:600;font-variant-numeric:tabular-nums;padding:11px 6px}
+.set input{text-align:center;font-size:18px;font-weight:600;font-variant-numeric:tabular-nums;padding:11px 2px;min-width:0}
 select option{background:#1B1C1F;color:#fff}
 .cv{display:block;text-align:center;color:var(--mut);font-size:12px;min-height:14px;margin-top:2px}
 .row{display:flex;gap:8px;margin-top:10px}
@@ -60,6 +60,12 @@ textarea{min-height:130px}
 .btn.cr small{color:var(--mut);font-weight:500;font-size:13px}.btn.cr.on{background:var(--acc);color:var(--accInk);box-shadow:none}.btn.cr.on small{color:var(--accInk);opacity:.85}
 #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 14px);transform:translate(-50%,-160%);background:var(--acc);color:var(--accInk);padding:12px 18px;border-radius:14px;font-weight:600;z-index:10;transition:transform .35s;max-width:90vw;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.45)}#toast.show{transform:translate(-50%,0)}
 @keyframes glow{0%{box-shadow:0 10px 30px rgba(0,0,0,.28)}25%{box-shadow:0 0 0 3px rgba(183,155,255,.95),0 0 44px rgba(122,71,224,.85)}100%{box-shadow:0 10px 30px rgba(0,0,0,.28)}}.ex.pop{animation:glow 1.7s ease-out}
+.cv:empty{display:none}
+.sec{display:flex;justify-content:space-between;align-items:center;width:100%;background:none;border:0;color:var(--ink);padding:0;font:inherit;text-align:left}
+.sec h2{margin:0}.sec span{color:var(--mut);font-size:18px}
+.sb{margin-top:12px}.sb>label:first-child{margin-top:0}
+.wc{display:flex;gap:4px;align-items:center}.wc input{min-width:0;flex:1}
+.btn.st{padding:0;width:28px;height:44px;flex:none;font-size:18px;line-height:1;border-radius:10px}
 .ch{background:rgba(255,255,255,.05);border-radius:14px;padding:10px;margin-top:10px;color:var(--ink)}
 </style>
 </head>
@@ -130,7 +136,16 @@ let off=0,sel=wd,view='log';
 const wdate=i=>{const d=new Date(today);d.setDate(d.getDate()-wd+off*7+i);return d};
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const app=document.getElementById('app');
-const exs=d=>S.plan[typeOf(d)]||[];
+const exs=d=>(S.plan[typeOf(d)]||[]).map(x=>(((S.sw||{})[iso(d)])||{})[x]||x);
+const orig=(d,ei)=>(S.plan[typeOf(d)]||[])[ei];
+let swapOpen=-1;
+const DEFO={kal:1,wk:1,bw:1,ph:0,zy:1,fo:1,ue:1,st:0,bk:0};
+const isOpen=k=>S.ui&&S.ui[k]!==undefined?!!S.ui[k]:!!DEFO[k];
+const sec=(k,t,inner)=>'<section class="ex"><button class="sec" data-tg="'+k+'"><h2>'+t+'</h2><span>'+(isOpen(k)?'▾':'▸')+'</span></button>'+(isOpen(k)?'<div class="sb">'+inner+'</div>':'')+'</section>';
+const rerender=()=>view==='plan'?renderPlan():view==='pr'?renderPR():view==='st'?renderStats():render();
+function swapPanel(ei,swapped){return'<div class="row" style="margin:0 0 8px"><input id="swin" list="dl" placeholder="Ersatzübung wählen oder tippen" style="flex:1"><button class="btn pri" data-swok="1">OK</button></div>'+(swapped?'<div class="row" style="margin:0 0 10px"><button class="btn" data-swundo="'+ei+'">Zurücksetzen</button></div>':'')+'<datalist id="dl">'+allEx().map(o=>'<option value="'+esc(o)+'">').join('')+'</datalist>'}
+async function copyText(t){try{await navigator.clipboard.writeText(t);return true}catch(e){try{const ta=document.createElement('textarea');ta.value=t;ta.style.cssText='position:fixed;opacity:0';document.body.appendChild(ta);ta.select();const ok=document.execCommand('copy');ta.remove();return !!ok}catch(e2){return false}}}
+function bkHtml(){const n=Object.keys(S.logs).filter(k=>trained(pIso(k))).length;if(n<3)return'';if(S.bkd&&dn(today)-dn(pIso(S.bkd))<=14)return'';return'<div class="cv" style="text-align:left;margin:0 0 12px;font-size:14px">💾 Backup fällig: Tab Plan → Backup → „Backup kopieren“</div>'}
 function last(ex,date){const ks=Object.keys(S.logs).filter(k=>k<date).sort().reverse();for(const k of ks){const a=S.logs[k][ex];if(a&&a.some(s=>s&&(s.w||s.r)))return a}return[]}
 function logged(d){const L=S.logs[iso(d)];return L&&Object.values(L).some(a=>a.some(s=>s&&(s.w||s.r)))}
 function render(){
@@ -145,14 +160,14 @@ function render(){
   document.getElementById('d').textContent=LONG[sel]+', '+cd.toLocaleDateString('de-DE')+' – '+(type==='Rest'?'Ruhetag':type);
   let h='<div class="row" style="margin:0 0 8px;justify-content:space-between;align-items:center"><button class="btn" data-wk="-1">‹</button><span class="sub" style="margin:0">Woche ab '+wdate(0).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})+(off===0?' (diese)':'')+'</span><button class="btn" data-wk="1">›</button></div>';
   h+='<div class="week">'+DAYS.map((n,i)=>{const d=wdate(i),t=typeOf(d);return'<button data-day="'+i+'" class="'+(i===sel?'on ':'')+(t==='Rest'?'rest ':'')+(logged(d)?'done':'')+'"><b>'+n+'</b><small>'+t+'</small></button>'}).join('')+'</div>';
-  h+=crHtml();
+  h+=crHtml()+bkHtml();
   if(type==='Rest')h+='<div class="restbox">Ruhetag. Erholen, essen, schlafen.</div>';
   else exs(cd).forEach((ex,ei)=>{
     const A=(S.logs[date]||{})[ex],a=A||[],l=last(ex,date),n=A?Math.max(A.length,1):3;
-    const lb=S.lb&&S.lb[ex];
-    h+='<section class="ex"><div class="hd"><h2>'+esc(ex)+'</h2><button class="btn" data-lb="'+ei+'">'+(lb?'lb':'kg')+'</button></div><div class="cv" id="pr'+ei+'" style="text-align:left;margin:-4px 0 8px">'+esc(prText(ex))+'</div><div class="cv" style="text-align:left;margin:-4px 0 8px">'+esc(sugg(ex,date))+'</div><input class="note" data-n="'+ei+'" placeholder="Notiz, z. B. Sitz auf 4" value="'+esc((S.notes||{})[ex]||'')+'">';
+    const lb=S.lb&&S.lb[ex],og=orig(cd,ei);
+    h+='<section class="ex"><div class="hd"><h2>'+esc(ex)+'</h2><div style="display:flex;gap:6px"><button class="btn" data-sw="'+ei+'" style="min-width:44px">⇄</button><button class="btn" data-lb="'+ei+'">'+(lb?'lb':'kg')+'</button></div></div><div class="cv" id="pr'+ei+'" style="text-align:left;margin:-4px 0 8px">'+esc(prText(ex))+'</div><div class="cv" style="text-align:left;margin:-4px 0 8px">'+esc(sugg(ex,date))+'</div>'+(og!==ex?'<div class="cv" style="text-align:left">⇄ Heute statt '+esc(og)+'</div>':'')+(swapOpen===ei?swapPanel(ei,og!==ex):'')+'<input class="note" data-n="'+ei+'" placeholder="Notiz, z. B. Sitz auf 4" value="'+esc((S.notes||{})[ex]||'')+'">';
     for(let s=0;s<n;s++){const v=a[s]||{},p=l[s]||{};
-      h+='<div class="set"><span>'+(s+1)+'</span><div><input inputmode="decimal" data-e="'+ei+'" data-s="'+s+'" data-k="w" placeholder="'+(p.w?esc(p.w):(lb?'lb':'kg'))+'" value="'+esc(v.w||'')+'">'+(lb?'<small class="cv">'+(v.w?toLb(v.w)+' lb':'in lb eingeben')+'</small>':'')+'</div><i>×</i><input inputmode="numeric" data-e="'+ei+'" data-s="'+s+'" data-k="r" placeholder="'+(p.r||'Wdh')+'" value="'+esc(v.r||'')+'"><button class="btn wu'+(v.wu?' on':'')+'" data-wu="'+ei+':'+s+'">W</button></div>'}
+      h+='<div class="set"><span>'+(s+1)+'</span><div><div class="wc"><button class="btn st" data-st="'+ei+':'+s+':-1">−</button><input inputmode="decimal" data-e="'+ei+'" data-s="'+s+'" data-k="w" placeholder="'+(p.w?esc(p.w):(lb?'lb':'kg'))+'" value="'+esc(v.w||'')+'"><button class="btn st" data-st="'+ei+':'+s+':1">+</button></div>'+(lb?'<small class="cv">'+(v.w?toLb(v.w)+' lb':'in lb eingeben')+'</small>':'')+'</div><i>×</i><input inputmode="numeric" data-e="'+ei+'" data-s="'+s+'" data-k="r" placeholder="'+(p.r||'Wdh')+'" value="'+esc(v.r||'')+'"><button class="btn wu'+(v.wu?' on':'')+'" data-wu="'+ei+':'+s+'">W</button></div>'}
     h+='<div class="row"><button class="btn" data-add="'+ei+'">+ Satz</button><button class="btn" data-del="'+ei+'">− Satz</button>'+(l.length?'<button class="btn" data-cp="'+ei+'" style="flex:1">↺ Wie letztes Mal</button>':'')+'</div></section>';
   });
   if(type!=='Rest'){const tm=tmOf(date);if(tm&&tm.e)h+=summaryHtml(date);else if(logged(cd))h+='<button class="btn pri" style="width:100%;margin:2px 0 14px;padding:14px" data-fin="1">Training beenden</button>'}
@@ -169,20 +184,21 @@ function calHtml(){
   let cells=DAYS.map(x=>'<b>'+x+'</b>').join('')+'<div></div>'.repeat(first),cnt=0;
   for(let day=1;day<=dim;day++){const d=new Date(m.getFullYear(),m.getMonth(),day),t=trained(d);if(t)cnt++;cells+='<div class="cd'+(t?' on':'')+(iso(d)===iso(today)?' td':'')+'">'+day+'</div>'}
   const n=streak();
-  return'<section class="ex"><h2>Kalender</h2><div class="cv" style="text-align:left;font-size:16px">🔥 '+n+(n===1?' Training':' Trainings')+' in Folge (Ruhetage zählen nicht als Pause)</div><div class="row" style="justify-content:space-between;align-items:center"><button class="btn" data-cal="-1">‹</button><span>'+m.toLocaleDateString('de-DE',{month:'long',year:'numeric'})+' · '+cnt+(cnt===1?' Training':' Trainings')+'</span><button class="btn" data-cal="1">›</button></div><div class="cal">'+cells+'</div></section>';
+  return sec('kal','Kalender','<div class="cv" style="text-align:left;font-size:16px">🔥 '+n+(n===1?' Training':' Trainings')+' in Folge (Ruhetage zählen nicht als Pause)</div><div class="row" style="justify-content:space-between;align-items:center"><button class="btn" data-cal="-1">‹</button><span>'+m.toLocaleDateString('de-DE',{month:'long',year:'numeric'})+' · '+cnt+(cnt===1?' Training':' Trainings')+'</span><button class="btn" data-cal="1">›</button></div><div class="cal">'+cells+'</div>');
 }
-function photoHtml(){
+function photoInner(){
   const L=[...P].sort((a,b)=>a.id-b.id);
   picked=picked.filter(id=>L.some(p=>p.id===id));
   const cmp=picked.length?picked.map(id=>L.find(p=>p.id===id)):(L.length>=2?[L[0],L[L.length-1]]:L.slice());
-  let h='<section class="ex"><h2>Fortschrittsfotos</h2><label class="btn" style="display:block;text-align:center;margin:0 0 10px">Foto hinzufügen<input type="file" accept="image/*" data-ph="1" style="display:none"></label>';
-  if(!L.length)return h+'<div class="cv" style="text-align:left">Noch keine Fotos. Mach am besten einmal pro Woche eins, gleiche Pose, gleiches Licht.</div></section>';
+  let h='<label class="btn" style="display:block;text-align:center;margin:0 0 10px">Foto hinzufügen<input type="file" accept="image/*" data-ph="1" style="display:none"></label>';
+  if(!L.length)return h+'<div class="cv" style="text-align:left">Noch keine Fotos. Mach am besten einmal pro Woche eins, gleiche Pose, gleiches Licht.</div>';
   h+='<div style="display:grid;grid-template-columns:'+(cmp.length>1?'1fr 1fr':'1fr')+';gap:8px">'+cmp.map(p=>'<div><img src="'+p.img+'" style="width:100%;border-radius:12px;display:block"><div class="cv">'+pIso(p.d).toLocaleDateString('de-DE')+'</div></div>').join('')+'</div>';
   h+='<div class="cv" style="text-align:left">'+(picked.length?'Ausgewählt: '+picked.length+' (tippe zum Ändern, max. 2)':(L.length>=2?'Vorher / Nachher. Tippe unten zwei Fotos an, um andere zu vergleichen.':''))+'</div>';
   h+='<div class="pg">'+[...L].reverse().map(p=>'<button class="th'+(picked.includes(p.id)?' on':'')+'" data-th="'+p.id+'"><img src="'+p.img+'"><span>'+pIso(p.d).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})+'</span></button>').join('')+'</div>';
   if(picked.length)h+='<div class="row"><button class="btn" data-delph="1">Ausgewählte löschen</button></div>';
-  return h+'</section>';
+  return h;
 }
+const photoHtml=()=>sec('ph','Fortschrittsfotos',photoInner());
 let pex=null;
 const allEx=()=>[...new Set([...S.plan.Upper,...S.plan.Lower])];
 function chart(pts){
@@ -201,17 +217,19 @@ function renderStats(){
   const mon=new Date(today);mon.setDate(mon.getDate()-wd);
   let days=0,sets=0,g={};
   for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);const L=S.logs[iso(d)];if(!L)continue;let any=0;for(const ex in L)for(const s of L[ex])if(work(s)){sets++;any=1;const k=grp(ex);g[k]=(g[k]||0)+1}days+=any}
-  let h=calHtml()+'<section class="ex"><h2>Diese Woche</h2><div class="cv" style="text-align:left;font-size:16px">'+days+(days===1?' Training':' Trainings')+' · '+sets+' Arbeitssätze</div>'+(sets?'<div class="cv" style="text-align:left;font-size:14px">'+Object.entries(g).sort((a,b)=>b[1]-a[1]).map(([k,v])=>k+' '+v).join(' · ')+'</div>':'')+'</section>';
+  let h=calHtml();
+  h+=sec('wk','Diese Woche','<div class="cv" style="text-align:left;font-size:16px">'+days+(days===1?' Training':' Trainings')+' · '+sets+' Arbeitssätze</div>'+(sets?'<div class="cv" style="text-align:left;font-size:14px">'+Object.entries(g).sort((a,b)=>b[1]-a[1]).map(([k,v])=>k+' '+v).join(' · ')+'</div>':''));
   const tk=iso(today),a7=bwAvg(0,6),b7=bwAvg(7,13),pts=[];
   for(let k=27;k>=0;k--){const d=new Date(today);d.setDate(d.getDate()-k);const w=num((S.bw||{})[iso(d)]);if(w)pts.push({x:28-k,y:w,l:lab(iso(d))})}
-  h+='<section class="ex"><h2>Körpergewicht</h2><label>Heute morgens (kg)</label><input inputmode="decimal" data-bw="1" placeholder="kg" value="'+esc((S.bw||{})[tk]||'')+'">';
-  if(a7!==null)h+='<div class="cv" style="text-align:left;font-size:14px;margin-top:6px">Ø letzte 7 Tage: '+fmt(Math.round(a7*10)/10)+' kg'+(b7!==null?' ('+(a7-b7>=0?'+':'')+fmt(Math.round((a7-b7)*10)/10)+' kg zur Woche davor)':'')+'</div>';
-  h+='<div class="ch">'+chart(pts)+'</div></section>';
+  h+=sec('bw','Körpergewicht','<label>Heute morgens (kg)</label><input inputmode="decimal" data-bw="1" placeholder="kg" value="'+esc((S.bw||{})[tk]||'')+'">'+(a7!==null?'<div class="cv" style="text-align:left;font-size:14px;margin-top:6px">Ø letzte 7 Tage: '+fmt(Math.round(a7*10)/10)+' kg'+(b7!==null?' ('+(a7-b7>=0?'+':'')+fmt(Math.round((a7-b7)*10)/10)+' kg zur Woche davor)':'')+'</div>':'')+'<div class="ch">'+chart(pts)+'</div>');
+  h+=photoHtml();
+  app.innerHTML=h;
+}
+function progHtml(){
   const list=allEx();if(!pex||!list.includes(pex))pex=list[0];
   const sp=[];Object.keys(S.logs).sort().forEach(d=>{const a=S.logs[d][pex];if(!a)return;const ws=a.filter(work);if(!ws.length)return;const y=pmet==='vol'?ws.reduce((t,s)=>t+num(s.w)*num(s.r),0):pmet==='e1'?Math.max(...ws.map(s=>num(s.w)*(1+num(s.r)/30))):Math.max(...ws.map(s=>num(s.w)));sp.push({x:sp.length,y:Math.round(y*10)/10,l:lab(d)})});
   const tail=sp.slice(-20);
-  h+='<section class="ex"><h2>Fortschritt</h2><label>Übung</label><select data-px="1">'+list.map(o=>'<option'+(o===pex?' selected':'')+' value="'+esc(o)+'">'+esc(o)+'</option>').join('')+'</select><div class="row" style="margin-top:8px">'+Object.entries(MET).map(([k,n])=>'<button class="btn'+(pmet===k?' pri':'')+'" data-met="'+k+'" style="flex:1;padding:9px 4px;font-size:13px">'+n+'</button>').join('')+'</div>'+(tail.length?'<div class="cv" style="text-align:left;font-size:14px;margin-top:6px">'+MET[pmet]+' pro Training: '+fmt(tail[0].y)+' kg → '+fmt(tail[tail.length-1].y)+' kg</div>':'')+'<div class="ch">'+chart(tail)+'</div></section>'+photoHtml();
-  app.innerHTML=h;
+  return sec('fo','Fortschritt','<label>Übung</label><select data-px="1">'+list.map(o=>'<option'+(o===pex?' selected':'')+' value="'+esc(o)+'">'+esc(o)+'</option>').join('')+'</select><div class="row" style="margin-top:8px">'+Object.entries(MET).map(([k,n])=>'<button class="btn'+(pmet===k?' pri':'')+'" data-met="'+k+'" style="flex:1;padding:9px 4px;font-size:13px">'+n+'</button>').join('')+'</div>'+(tail.length?'<div class="cv" style="text-align:left;font-size:14px;margin-top:6px">'+MET[pmet]+' pro Training: '+fmt(tail[0].y)+' kg → '+fmt(tail[tail.length-1].y)+' kg</div>':'')+'<div class="ch">'+chart(tail)+'</div>');
 }
 function renderPR(){
   document.getElementById('d').textContent='Bestwerte';
@@ -223,12 +241,12 @@ function renderPR(){
 function renderPlan(){
   document.getElementById('d').textContent='Plan anpassen';
   const n=S.cycle.length,opt=(v,list)=>list.map(o=>'<option'+(v==o?' selected':'')+'>'+o+'</option>').join('');
-  let h='<section class="ex"><h2>Zyklus ('+n+' Tage)</h2><label>Läuft endlos weiter, auch über Wochen hinweg</label>'+S.cycle.map((t,i)=>'<div class="wk"><b>'+(i+1)+'</b><select data-cy="'+i+'">'+opt(t,['Upper','Lower','Rest'])+'</select></div>').join('')+'<div class="row"><button class="btn" id="addc">+ Tag</button><button class="btn" id="delc">− Tag</button></div>';
-  h+='<label>Heute ('+today.toLocaleDateString('de-DE')+') ist Zyklustag</label><select data-today="1">'+opt(cyIdx(today)+1,S.cycle.map((_,i)=>i+1))+'</select></section>';
-  ['Upper','Lower'].forEach(t=>{h+='<section class="ex"><h2>'+t+'</h2><label>Eine Übung pro Zeile</label><textarea data-pl="'+t+'">'+esc(S.plan[t].join('\n'))+'</textarea></section>'});
-  const P={reps:8,step:2.5,...S.prog};
-  h+='<section class="ex"><h2>Steigerung</h2><label>Ab wie vielen Wdh pro Satz soll die App mehr Gewicht vorschlagen?</label><input inputmode="numeric" data-set="reps" value="'+P.reps+'"><label>Um wie viel kg steigern?</label><input inputmode="decimal" data-set="step" value="'+fmt(P.step)+'"></section>';
-  h+='<section class="ex"><h2>Backup</h2><textarea id="bk" placeholder="Hier steht dein Backup oder du fügst eins zum Importieren ein"></textarea><div class="row"><button class="btn" id="ex">Backup anzeigen</button><button class="btn" id="im">Importieren</button></div></section>';
+  let h=sec('zy','Zyklus ('+n+' Tage)','<label>Läuft endlos weiter, auch über Wochen hinweg</label>'+S.cycle.map((t,i)=>'<div class="wk"><b>'+(i+1)+'</b><select data-cy="'+i+'">'+opt(t,['Upper','Lower','Rest'])+'</select></div>').join('')+'<div class="row"><button class="btn" id="addc">+ Tag</button><button class="btn" id="delc">− Tag</button></div><label>Heute ('+today.toLocaleDateString('de-DE')+') ist Zyklustag</label><select data-today="1">'+opt(cyIdx(today)+1,S.cycle.map((_,i)=>i+1))+'</select>');
+  h+=progHtml();
+  h+=sec('ue','Übungen','<label>Upper, eine Übung pro Zeile</label><textarea data-pl="Upper">'+esc(S.plan.Upper.join('\n'))+'</textarea><label>Lower, eine Übung pro Zeile</label><textarea data-pl="Lower">'+esc(S.plan.Lower.join('\n'))+'</textarea>');
+  const P0={reps:8,step:2.5,...S.prog};
+  h+=sec('st','Steigerung','<label>Ab wie vielen Wdh pro Satz soll die App mehr Gewicht vorschlagen?</label><input inputmode="numeric" data-set="reps" value="'+P0.reps+'"><label>Um wie viel kg steigern? (gilt auch für die +/− Knöpfe)</label><input inputmode="decimal" data-set="step" value="'+fmt(P0.step)+'">');
+  h+=sec('bk','Backup','<textarea id="bk" placeholder="Hier steht dein Backup oder du fügst eins zum Importieren ein"></textarea><div class="row"><button class="btn" id="cpb" style="flex:1">Backup kopieren</button><button class="btn" id="ex">Anzeigen</button><button class="btn" id="im">Import</button></div><div class="cv" style="text-align:left;margin-top:8px">'+(S.bkd?'Letztes Backup: '+pIso(S.bkd).toLocaleDateString('de-DE'):'Noch kein Backup kopiert.')+' Fotos sind nicht enthalten.</div>');
   app.innerHTML=h;
 }
 function setToday(i){S.anchor={date:iso(today),idx:i};save()}
@@ -243,10 +261,10 @@ app.addEventListener('input',e=>{
 app.addEventListener('focusin',e=>{const t=e.target,d=t.dataset;if(d.k==='w'&&S.lb&&S.lb[exs(wdate(sel))[+d.e]])setTimeout(()=>t.select(),0)});
 app.addEventListener('change',e=>{
   const d=e.target.dataset,v=e.target.value;
-  if(d.k==='w'){const cd=wdate(sel),ex=exs(cd)[+d.e];if(S.lb&&S.lb[ex]){const val=toKg(v),date=iso(cd);const L=S.logs[date]=S.logs[date]||{};const a=L[ex]=L[ex]||[{},{},{}];const i=+d.s;while(a.length<=i)a.push({});a[i].w=val;e.target.value=val;const c=e.target.nextElementSibling;if(c)c.textContent=val===''?'in lb eingeben':toLb(val)+' lb';save()}}
+  if(d.k==='w'){const cd=wdate(sel),ex=exs(cd)[+d.e];if(S.lb&&S.lb[ex]){const val=toKg(v),date=iso(cd);const L=S.logs[date]=S.logs[date]||{};const a=L[ex]=L[ex]||[{},{},{}];const i=+d.s;while(a.length<=i)a.push({});a[i].w=val;e.target.value=val;const c=e.target.closest('.set').querySelector('small.cv');if(c)c.textContent=val===''?'in lb eingeben':toLb(val)+' lb';save()}}
   if(d.k){const cd=wdate(sel);checkPR(exs(cd)[+d.e],+d.s,iso(cd),+d.e)}
   if(d.bw!==undefined){S.bw=S.bw||{};const n=num(v);if(n)S.bw[iso(today)]=n;else delete S.bw[iso(today)];save();renderStats()}
-  if(d.px!==undefined){pex=v;renderStats()}
+  if(d.px!==undefined){pex=v;rerender()}
   if(d.f==='w'&&S.lb&&S.lb[d.x]){const val=toKg(v);S.pr=S.pr||{};const q=S.pr[d.x]=S.pr[d.x]||{w:'',r:''};q.w=String(val);q.d=iso(new Date());e.target.value=val;const c=e.target.nextElementSibling;if(c)c.textContent=val===''?'in lb eingeben':toLb(val)+' lb';save()}
   if(d.ph!==undefined){const f=e.target.files&&e.target.files[0];if(f)readPhoto(f,img=>{P.push({id:Date.now(),d:iso(new Date()),img});if(!savePh())P.pop();renderStats()})}
   if(d.cy!==undefined){const k=cyIdx(today);S.cycle[+d.cy]=v;setToday(k)}
@@ -254,13 +272,19 @@ app.addEventListener('change',e=>{
 });
 app.addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;const d=b.dataset;
-  if(d.day!==undefined){sel=+d.day;render()}
+  if(d.day!==undefined){sel=+d.day;swapOpen=-1;render()}
   else if(d.wk!==undefined){off+=+d.wk;render()}
   else if(d.cal!==undefined){calOff+=+d.cal;renderStats()}
   else if(d.th!==undefined){const id=+d.th;picked=picked.includes(id)?picked.filter(x=>x!==id):[...picked,id].slice(-2);renderStats()}
   else if(d.delph!==undefined){if(confirm('Ausgewählte Fotos löschen?')){const old=P;P=P.filter(p=>!picked.includes(p.id));if(!savePh())P=old;picked=[];renderStats()}}
+  else if(d.tg!==undefined){S.ui=S.ui||{};S.ui[d.tg]=!isOpen(d.tg);save();rerender()}
+  else if(d.st!==undefined){const [ei,si,dir]=d.st.split(':').map(Number),cd=wdate(sel),ex=exs(cd)[ei],date=iso(cd),l=last(ex,date);markStart(date);const L=S.logs[date]=S.logs[date]||{};const a=L[ex]=L[ex]||[{},{},{}];while(a.length<=si)a.push({});const lbm=S.lb&&S.lb[ex],stp={step:2.5,...S.prog}.step;let cur=num(a[si].w);if(!cur&&l.length)cur=num((l[si]||l[l.length-1]||{}).w);const nv=lbm?toKg(Math.max(0,(toLb(cur||0)||0)+dir*5)):Math.max(0,Math.round((cur+dir*stp)*100)/100);a[si].w=nv?String(nv):'';save();checkPR(ex,si,date,ei);render()}
+  else if(d.sw!==undefined){swapOpen=swapOpen===+d.sw?-1:+d.sw;render()}
+  else if(d.swok!==undefined){const v=(document.getElementById('swin').value||'').trim(),cd=wdate(sel),date=iso(cd),og=orig(cd,swapOpen);if(v&&og){S.sw=S.sw||{};const m=S.sw[date]=S.sw[date]||{};if(v===og)delete m[og];else m[og]=v;save()}swapOpen=-1;render()}
+  else if(d.swundo!==undefined){const cd=wdate(sel),og=orig(cd,+d.swundo),m=(S.sw||{})[iso(cd)];if(m&&og)delete m[og];save();swapOpen=-1;render()}
+  else if(b.id==='cpb'){const txt=JSON.stringify(S);copyText(txt).then(ok=>{if(ok){S.bkd=iso(new Date());save();toast('Backup kopiert. Füge es jetzt in eine Notiz ein.');renderPlan()}else{document.getElementById('bk').value=txt;toast('Kopieren geht hier nicht. Der Text steht im Feld, kopiere ihn selbst.')}})}
   else if(d.cr!==undefined){S.cr=S.cr||{};const k=iso(today);if(S.cr[k])delete S.cr[k];else S.cr[k]=true;save();render()}
-  else if(d.met!==undefined){pmet=d.met;renderStats()}
+  else if(d.met!==undefined){pmet=d.met;rerender()}
   else if(d.fin!==undefined){const date=iso(wdate(sel));markStart(date);S.tm[date].e=Date.now();save();render();setTimeout(()=>window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'}),60)}
   else if(d.unfin!==undefined){const t=tmOf(iso(wdate(sel)));if(t)delete t.e;save();render()}
   else if(d.cp!==undefined){const cd=wdate(sel),ex=exs(cd)[+d.cp],date=iso(cd),l=last(ex,date);if(l.length){markStart(date);const L=S.logs[date]=S.logs[date]||{};const a=L[ex]=L[ex]||[];while(a.length<l.length)a.push({});l.forEach((q,i)=>{if(!q)return;if(!a[i].w&&q.w)a[i].w=q.w;if(!a[i].r&&q.r)a[i].r=q.r;if(q.wu&&a[i].wu===undefined)a[i].wu=q.wu});save();render()}}
