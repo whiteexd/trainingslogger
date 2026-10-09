@@ -56,6 +56,10 @@ textarea{min-height:130px}
 .cd{padding:9px 0;border-radius:10px;font-variant-numeric:tabular-nums}.cd.on{background:var(--acc);color:var(--accInk);font-weight:600}.cd.td{box-shadow:inset 0 0 0 2px var(--accTx)}
 .pg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
 .th{border:0;background:none;padding:0;color:var(--mut);font:inherit;font-size:12px;border-radius:10px}.th img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:10px;display:block}.th.on img{outline:3px solid var(--accTx)}
+.btn.cr{display:flex;justify-content:space-between;align-items:center;width:100%;margin:0 0 14px;padding:14px 16px;background:var(--glass);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-radius:16px;font-size:16px;box-shadow:inset 0 0 0 2px var(--accTx)}
+.btn.cr small{color:var(--mut);font-weight:500;font-size:13px}.btn.cr.on{background:var(--acc);color:var(--accInk);box-shadow:none}.btn.cr.on small{color:var(--accInk);opacity:.85}
+#toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 14px);transform:translate(-50%,-160%);background:var(--acc);color:var(--accInk);padding:12px 18px;border-radius:14px;font-weight:600;z-index:10;transition:transform .35s;max-width:90vw;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.45)}#toast.show{transform:translate(-50%,0)}
+@keyframes glow{0%{box-shadow:0 10px 30px rgba(0,0,0,.28)}25%{box-shadow:0 0 0 3px rgba(183,155,255,.95),0 0 44px rgba(122,71,224,.85)}100%{box-shadow:0 10px 30px rgba(0,0,0,.28)}}.ex.pop{animation:glow 1.7s ease-out}
 .ch{background:rgba(255,255,255,.05);border-radius:14px;padding:10px;margin-top:10px;color:var(--ink)}
 </style>
 </head>
@@ -81,13 +85,40 @@ const toKg=l=>{const n=parseFloat(String(l).replace(',','.'));return isNaN(n)?''
 const toLb=k=>{const n=parseFloat(String(k).replace(',','.'));return isNaN(n)?'':Math.round(n/0.45359237*10)/10};
 const num=x=>{const n=parseFloat(String(x).replace(',','.'));return isNaN(n)?0:n};
 const prText=ex=>{const p=S.pr&&S.pr[ex];return p&&num(p.w)&&num(p.r)?'🏆 Bestwert: '+p.w+' kg × '+p.r:''};
-function checkPR(ex,i,date,ei){const st=(S.logs[date]||{})[ex],v=st&&st[i];if(!v||v.wu)return;const w=num(v.w),r=num(v.r);if(!w||!r)return;const p=S.pr&&S.pr[ex];if(!p||!num(p.w)||!num(p.r))return;if(w>num(p.w)||(w===num(p.w)&&r>num(p.r))){S.pr[ex]={w:String(v.w),r:String(v.r),d:iso(new Date())};save();const el=document.getElementById('pr'+ei);if(el)el.textContent=prText(ex)+'  (neu!)'}}
+function checkPR(ex,i,date,ei){
+  const p0=S.pr&&S.pr[ex];if(!p0)return;
+  S.prb=S.prb||{};const key=date+'|'+ex,base=S.prb[key]||{w:p0.w,r:p0.r,d:p0.d};
+  if(!num(base.w)||!num(base.r))return;
+  const ws=((S.logs[date]||{})[ex]||[]).filter(work);
+  const hl=S.prh=S.prh||{},list=hl[date]=hl[date]||[],el=document.getElementById('pr'+ei);
+  const best=ws.length?ws.reduce((a,b)=>num(b.w)>num(a.w)||(num(b.w)===num(a.w)&&num(b.r)>num(a.r))?b:a):null;
+  const beats=best&&(num(best.w)>num(base.w)||(num(best.w)===num(base.w)&&num(best.r)>num(base.r)));
+  if(beats){const changed=!(String(p0.w)===String(best.w)&&String(p0.r)===String(best.r));S.prb[key]=base;S.pr[ex]={w:String(best.w),r:String(best.r),d:iso(new Date())};if(!list.includes(ex))list.push(ex);save();if(el)el.textContent=prText(ex)+'  (neu!)';if(changed)celebrate(ex,best.w,best.r,ei)}
+  else if(S.prb[key]){S.pr[ex]=S.prb[key];delete S.prb[key];hl[date]=list.filter(x=>x!==ex);save();if(el)el.textContent=prText(ex)}
+}
 const fmt=n=>String(n).replace('.',',');
 const G=[['Brust',/brust|bank|butterfly|flieg|chest|dips/i],['Rücken',/latzug|rudern|klimm|zug|row|pulldown/i],['Schultern',/schulter|seitheb|face|delta/i],['Beine',/bein|kniebeug|squat|wade|kreuzheb|adukt|abdukt|hack|gesäß/i],['Arme',/bizeps|trizeps|curl|arm/i]];
 const grp=ex=>{for(const[g,r]of G)if(r.test(ex))return g;return'Sonstige'};
 const work=s=>s&&!s.wu&&num(s.w)&&num(s.r);
 const lab=d=>d.slice(8)+'.'+d.slice(5,7)+'.';
 function sugg(ex,date){const l=last(ex,date).filter(work);if(!l.length)return'';const P={reps:8,step:2.5,...S.prog};const mw=Math.max(...l.map(s=>num(s.w)));return l.every(s=>num(s.r)>=P.reps)?'⬆️ Vorschlag: '+fmt(Math.round((mw+P.step)*100)/100)+' kg':'➡️ Vorschlag: '+fmt(mw)+' kg halten, '+P.reps+' Wdh pro Satz schaffen'}
+function toast(msg){let t=document.getElementById('toast');if(!t){t=document.createElement('div');t.id='toast';document.body.appendChild(t)}t.textContent=msg;t.className='show';clearTimeout(t._h);t._h=setTimeout(()=>{t.className=''},3400)}
+function celebrate(ex,w,r,ei){clearTimeout(celebrate._t);celebrate._t=setTimeout(()=>celebrate2(ex,w,r,ei),600)}
+function celebrate2(ex,w,r,ei){toast('🏆 Neuer Rekord: '+ex+' '+fmt(num(w))+' kg × '+num(r));try{navigator.vibrate&&navigator.vibrate([60,40,120])}catch(e){}const el=document.getElementById('pr'+ei),sec=el&&el.closest('.ex');if(sec){sec.classList.add('pop');setTimeout(()=>sec.classList.remove('pop'),1800)}}
+const tmOf=date=>(S.tm||{})[date];
+function markStart(date){S.tm=S.tm||{};const t=S.tm[date]=S.tm[date]||{};if(!t.s)t.s=Date.now()}
+const volOf=k=>{const L=S.logs[k];if(!L)return 0;let v=0;for(const ex in L)for(const s of L[ex])if(work(s))v+=num(s.w)*num(s.r);return v};
+function summaryHtml(date){
+  const L=S.logs[date]||{},tm=tmOf(date)||{};let sets=0,vol=0;const tops=[];
+  for(const ex in L){const ws=L[ex].filter(work);if(!ws.length)continue;sets+=ws.length;ws.forEach(s=>{vol+=num(s.w)*num(s.r)});const top=ws.reduce((a,b)=>num(b.w)>num(a.w)||(num(b.w)===num(a.w)&&num(b.r)>num(a.r))?b:a);tops.push(esc(ex)+': '+fmt(num(top.w))+' kg × '+num(top.r))}
+  const dur=tm.s&&tm.e?Math.max(1,Math.round((tm.e-tm.s)/60000)):null,prs=(S.prh||{})[date]||[],t=typeOf(pIso(date));
+  let prev=null;Object.keys(S.logs).filter(k=>k<date&&typeOf(pIso(k))===t&&volOf(k)>0).sort().forEach(k=>{prev=k});
+  const dv=prev?Math.round((vol/volOf(prev)-1)*100):null,cv='<div class="cv" style="text-align:left;font-size:15px;margin:4px 0">';
+  return'<section class="ex"><h2>Training geschafft 💪</h2>'+cv+(dur?'⏱ '+dur+' Min · ':'')+sets+' Arbeitssätze</div>'+cv+'📦 '+Math.round(vol).toLocaleString('de-DE')+' kg Volumen'+(dv!==null?' ('+(dv>=0?'+':'')+dv+' % zu deinem letzten '+t+')':'')+'</div>'+(prs.length?cv+'🏆 '+prs.length+(prs.length===1?' neuer Bestwert: ':' neue Bestwerte: ')+prs.map(esc).join(', ')+'</div>':'')+tops.map(x=>cv+x+'</div>').join('')+'<div class="row"><button class="btn" data-unfin="1">Weiter trainieren</button></div></section>';
+}
+const crStreak=()=>{let n=0;for(let k=(S.cr&&S.cr[iso(today)]?0:1);k<400;k++){const d=new Date(today);d.setDate(d.getDate()-k);if((S.cr||{})[iso(d)])n++;else break}return n};
+function crHtml(){const on=S.cr&&S.cr[iso(today)],n=crStreak();return'<button class="btn cr'+(on?' on':'')+'" data-cr="1"><span>'+(on?'✅':'⬜')+' Kreatin heute genommen</span><small>'+(n?n+(n===1?' Tag':' Tage')+' in Folge':'noch keine Serie')+'</small></button>'}
+const MET={top:'Topgewicht',vol:'Volumen',e1:'Gesch. Max'};let pmet='top';
 function save(){try{localStorage.setItem('tl',JSON.stringify(S))}catch(e){}}
 const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 const pIso=s=>{const a=s.split('-');return new Date(+a[0],+a[1]-1,+a[2])};
@@ -114,6 +145,7 @@ function render(){
   document.getElementById('d').textContent=LONG[sel]+', '+cd.toLocaleDateString('de-DE')+' – '+(type==='Rest'?'Ruhetag':type);
   let h='<div class="row" style="margin:0 0 8px;justify-content:space-between;align-items:center"><button class="btn" data-wk="-1">‹</button><span class="sub" style="margin:0">Woche ab '+wdate(0).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})+(off===0?' (diese)':'')+'</span><button class="btn" data-wk="1">›</button></div>';
   h+='<div class="week">'+DAYS.map((n,i)=>{const d=wdate(i),t=typeOf(d);return'<button data-day="'+i+'" class="'+(i===sel?'on ':'')+(t==='Rest'?'rest ':'')+(logged(d)?'done':'')+'"><b>'+n+'</b><small>'+t+'</small></button>'}).join('')+'</div>';
+  h+=crHtml();
   if(type==='Rest')h+='<div class="restbox">Ruhetag. Erholen, essen, schlafen.</div>';
   else exs(cd).forEach((ex,ei)=>{
     const A=(S.logs[date]||{})[ex],a=A||[],l=last(ex,date),n=A?Math.max(A.length,1):3;
@@ -121,8 +153,9 @@ function render(){
     h+='<section class="ex"><div class="hd"><h2>'+esc(ex)+'</h2><button class="btn" data-lb="'+ei+'">'+(lb?'lb':'kg')+'</button></div><div class="cv" id="pr'+ei+'" style="text-align:left;margin:-4px 0 8px">'+esc(prText(ex))+'</div><div class="cv" style="text-align:left;margin:-4px 0 8px">'+esc(sugg(ex,date))+'</div><input class="note" data-n="'+ei+'" placeholder="Notiz, z. B. Sitz auf 4" value="'+esc((S.notes||{})[ex]||'')+'">';
     for(let s=0;s<n;s++){const v=a[s]||{},p=l[s]||{};
       h+='<div class="set"><span>'+(s+1)+'</span><div><input inputmode="decimal" data-e="'+ei+'" data-s="'+s+'" data-k="w" placeholder="'+(p.w?esc(p.w):(lb?'lb':'kg'))+'" value="'+esc(v.w||'')+'">'+(lb?'<small class="cv">'+(v.w?toLb(v.w)+' lb':'in lb eingeben')+'</small>':'')+'</div><i>×</i><input inputmode="numeric" data-e="'+ei+'" data-s="'+s+'" data-k="r" placeholder="'+(p.r||'Wdh')+'" value="'+esc(v.r||'')+'"><button class="btn wu'+(v.wu?' on':'')+'" data-wu="'+ei+':'+s+'">W</button></div>'}
-    h+='<div class="row"><button class="btn" data-add="'+ei+'">+ Satz</button><button class="btn" data-del="'+ei+'">− Satz</button></div></section>';
+    h+='<div class="row"><button class="btn" data-add="'+ei+'">+ Satz</button><button class="btn" data-del="'+ei+'">− Satz</button>'+(l.length?'<button class="btn" data-cp="'+ei+'" style="flex:1">↺ Wie letztes Mal</button>':'')+'</div></section>';
   });
+  if(type!=='Rest'){const tm=tmOf(date);if(tm&&tm.e)h+=summaryHtml(date);else if(logged(cd))h+='<button class="btn pri" style="width:100%;margin:2px 0 14px;padding:14px" data-fin="1">Training beenden</button>'}
   app.innerHTML=h;
 }
 let calOff=0,picked=[],P=[];
@@ -175,9 +208,9 @@ function renderStats(){
   if(a7!==null)h+='<div class="cv" style="text-align:left;font-size:14px;margin-top:6px">Ø letzte 7 Tage: '+fmt(Math.round(a7*10)/10)+' kg'+(b7!==null?' ('+(a7-b7>=0?'+':'')+fmt(Math.round((a7-b7)*10)/10)+' kg zur Woche davor)':'')+'</div>';
   h+='<div class="ch">'+chart(pts)+'</div></section>';
   const list=allEx();if(!pex||!list.includes(pex))pex=list[0];
-  const sp=[];Object.keys(S.logs).sort().forEach(d=>{const a=S.logs[d][pex];if(!a)return;const w=a.filter(work).map(s=>num(s.w));if(w.length)sp.push({x:sp.length,y:Math.max(...w),l:lab(d)})});
+  const sp=[];Object.keys(S.logs).sort().forEach(d=>{const a=S.logs[d][pex];if(!a)return;const ws=a.filter(work);if(!ws.length)return;const y=pmet==='vol'?ws.reduce((t,s)=>t+num(s.w)*num(s.r),0):pmet==='e1'?Math.max(...ws.map(s=>num(s.w)*(1+num(s.r)/30))):Math.max(...ws.map(s=>num(s.w)));sp.push({x:sp.length,y:Math.round(y*10)/10,l:lab(d)})});
   const tail=sp.slice(-20);
-  h+='<section class="ex"><h2>Fortschritt</h2><label>Übung</label><select data-px="1">'+list.map(o=>'<option'+(o===pex?' selected':'')+' value="'+esc(o)+'">'+esc(o)+'</option>').join('')+'</select>'+(tail.length?'<div class="cv" style="text-align:left;font-size:14px;margin-top:6px">Topgewicht pro Training: '+fmt(tail[0].y)+' kg → '+fmt(tail[tail.length-1].y)+' kg</div>':'')+'<div class="ch">'+chart(tail)+'</div></section>'+photoHtml();
+  h+='<section class="ex"><h2>Fortschritt</h2><label>Übung</label><select data-px="1">'+list.map(o=>'<option'+(o===pex?' selected':'')+' value="'+esc(o)+'">'+esc(o)+'</option>').join('')+'</select><div class="row" style="margin-top:8px">'+Object.entries(MET).map(([k,n])=>'<button class="btn'+(pmet===k?' pri':'')+'" data-met="'+k+'" style="flex:1;padding:9px 4px;font-size:13px">'+n+'</button>').join('')+'</div>'+(tail.length?'<div class="cv" style="text-align:left;font-size:14px;margin-top:6px">'+MET[pmet]+' pro Training: '+fmt(tail[0].y)+' kg → '+fmt(tail[tail.length-1].y)+' kg</div>':'')+'<div class="ch">'+chart(tail)+'</div></section>'+photoHtml();
   app.innerHTML=h;
 }
 function renderPR(){
@@ -201,7 +234,7 @@ function renderPlan(){
 function setToday(i){S.anchor={date:iso(today),idx:i};save()}
 app.addEventListener('input',e=>{
   const t=e.target,d=t.dataset;
-  if(d.k){const cd=wdate(sel),ex=exs(cd)[+d.e],date=iso(cd);const L=S.logs[date]=S.logs[date]||{};const a=L[ex]=L[ex]||[{},{},{}];const i=+d.s;while(a.length<=i)a.push({});if(d.k==='w'&&S.lb&&S.lb[ex])return;a[i][d.k]=t.value;save()}
+  if(d.k){const cd=wdate(sel),ex=exs(cd)[+d.e],date=iso(cd);markStart(date);const L=S.logs[date]=S.logs[date]||{};const a=L[ex]=L[ex]||[{},{},{}];const i=+d.s;while(a.length<=i)a.push({});if(d.k==='w'&&S.lb&&S.lb[ex])return;a[i][d.k]=t.value;save()}
   if(d.f&&!(d.f==='w'&&S.lb&&S.lb[d.x])){S.pr=S.pr||{};const q=S.pr[d.x]=S.pr[d.x]||{w:'',r:''};q[d.f]=t.value;q.d=iso(new Date());save()}
   if(d.n!==undefined){const ex=exs(wdate(sel))[+d.n];S.notes=S.notes||{};S.notes[ex]=t.value;save()}
   if(d.set){S.prog=S.prog||{};S.prog[d.set]=num(t.value)||(d.set==='reps'?8:2.5);save()}
@@ -226,14 +259,19 @@ app.addEventListener('click',e=>{
   else if(d.cal!==undefined){calOff+=+d.cal;renderStats()}
   else if(d.th!==undefined){const id=+d.th;picked=picked.includes(id)?picked.filter(x=>x!==id):[...picked,id].slice(-2);renderStats()}
   else if(d.delph!==undefined){if(confirm('Ausgewählte Fotos löschen?')){const old=P;P=P.filter(p=>!picked.includes(p.id));if(!savePh())P=old;picked=[];renderStats()}}
-  else if(d.wu!==undefined){const q=d.wu.split(':').map(Number),cd=wdate(sel),ex=exs(cd)[q[0]],date=iso(cd);const L=S.logs[date]=S.logs[date]||{};const a=L[ex]=L[ex]||[{},{},{}];while(a.length<=q[1])a.push({});a[q[1]].wu=!a[q[1]].wu;save();render()}
+  else if(d.cr!==undefined){S.cr=S.cr||{};const k=iso(today);if(S.cr[k])delete S.cr[k];else S.cr[k]=true;save();render()}
+  else if(d.met!==undefined){pmet=d.met;renderStats()}
+  else if(d.fin!==undefined){const date=iso(wdate(sel));markStart(date);S.tm[date].e=Date.now();save();render();setTimeout(()=>window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'}),60)}
+  else if(d.unfin!==undefined){const t=tmOf(iso(wdate(sel)));if(t)delete t.e;save();render()}
+  else if(d.cp!==undefined){const cd=wdate(sel),ex=exs(cd)[+d.cp],date=iso(cd),l=last(ex,date);if(l.length){markStart(date);const L=S.logs[date]=S.logs[date]||{};const a=L[ex]=L[ex]||[];while(a.length<l.length)a.push({});l.forEach((q,i)=>{if(!q)return;if(!a[i].w&&q.w)a[i].w=q.w;if(!a[i].r&&q.r)a[i].r=q.r;if(q.wu&&a[i].wu===undefined)a[i].wu=q.wu});save();render()}}
+  else if(d.wu!==undefined){const q=d.wu.split(':').map(Number),cd=wdate(sel),ex=exs(cd)[q[0]],date=iso(cd);const L=S.logs[date]=S.logs[date]||{};const a=L[ex]=L[ex]||[{},{},{}];while(a.length<=q[1])a.push({});a[q[1]].wu=!a[q[1]].wu;save();checkPR(ex,q[1],date,q[0]);render()}
   else if(d.lbp!==undefined){const ex=allEx()[+d.lbp];S.lb=S.lb||{};S.lb[ex]=!S.lb[ex];save();renderPR()}
   else if(d.lb!==undefined){const ex=exs(wdate(sel))[+d.lb];S.lb=S.lb||{};S.lb[ex]=!S.lb[ex];save();render()}
   else if(d.add!==undefined||d.del!==undefined){
     const cd=wdate(sel),ei=+(d.add!==undefined?d.add:d.del),ex=exs(cd)[ei],date=iso(cd);
     const L=S.logs[date]=S.logs[date]||{};const a=L[ex]=L[ex]||[{},{},{}];
     if(d.add!==undefined)a.push({});else if(a.length>1)a.pop();
-    save();render();
+    save();checkPR(ex,0,date,ei);render();
   }
   else if(b.id==='addc'){const k=cyIdx(today);S.cycle.push('Upper');setToday(k);renderPlan()}
   else if(b.id==='delc'&&S.cycle.length>1){const k=Math.min(cyIdx(today),S.cycle.length-2);S.cycle.pop();setToday(k);renderPlan()}
