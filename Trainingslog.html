@@ -69,6 +69,7 @@ textarea{min-height:130px}
 #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 14px);transform:translate(-50%,-160%);background:var(--acc);color:var(--accInk);padding:12px 18px;border-radius:14px;font-weight:600;z-index:10;transition:transform .35s;max-width:90vw;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.45)}#toast.show{transform:translate(-50%,0)}
 @keyframes glow{0%{box-shadow:0 10px 30px rgba(0,0,0,.28)}25%{box-shadow:0 0 0 3px rgba(183,155,255,.95),0 0 44px rgba(122,71,224,.85)}100%{box-shadow:0 10px 30px rgba(0,0,0,.28)}}.ex.pop{animation:glow 1.7s ease-out}
 .cv:empty{display:none}
+.cd.sk{background:rgba(240,170,70,.3)}
 .set input.auto{color:var(--mut)}
 .lnk{background:none;border:0;color:var(--accTx);font:inherit;padding:0;text-decoration:underline}
 #undo{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);transform:translate(-50%,200%);display:flex;gap:14px;align-items:center;background:rgba(20,20,24,.96);color:#fff;padding:12px 14px 12px 18px;border-radius:14px;z-index:11;transition:transform .3s;box-shadow:0 10px 30px rgba(0,0,0,.5);white-space:nowrap}
@@ -141,7 +142,7 @@ function toast(msg){let t=document.getElementById('toast');if(!t){t=document.cre
 function celebrate(ex,w,r,ei){clearTimeout(celebrate._t);celebrate._t=setTimeout(()=>celebrate2(ex,w,r,ei),600)}
 function celebrate2(ex,w,r,ei){toast('🏆 Neuer Rekord: '+ex+' '+fmt(num(w))+' kg × '+num(r));try{navigator.vibrate&&navigator.vibrate([60,40,120])}catch(e){}const el=document.getElementById('pr'+ei),sec=el&&el.closest('.ex');if(sec){sec.classList.add('pop');setTimeout(()=>sec.classList.remove('pop'),1800)}}
 const tmOf=date=>(S.tm||{})[date];
-function markStart(date){S.tm=S.tm||{};const t=S.tm[date]=S.tm[date]||{};if(!t.s)t.s=Date.now()}
+function markStart(date){S.dt=S.dt||{};if(!S.dt[date])S.dt[date]=typeOf(pIso(date));S.tm=S.tm||{};const t=S.tm[date]=S.tm[date]||{};if(!t.s)t.s=Date.now()}
 const volOf=k=>{const L=S.logs[k];if(!L)return 0;let v=0;for(const ex in L)for(const s of L[ex])if(work(s))v+=num(s.w)*num(s.r);return v};
 function summaryHtml(date){
   const L=S.logs[date]||{},tm=tmOf(date)||{};let sets=0,vol=0;const tops=[];
@@ -155,7 +156,7 @@ const ckDone=k=>((S.chk.days||{})[k]||[]);
 const ckStreak=nm=>{let n=0;for(let k=(ckDone(iso(today)).includes(nm)?0:1);k<400;k++){const d=new Date(today);d.setDate(d.getDate()-k);if(ckDone(iso(d)).includes(nm))n++;else break}return n};
 function crHtml(){return S.chk.items.length?'<div class="ck">'+S.chk.items.map((nm,i)=>{const on=ckDone(iso(today)).includes(nm),n=ckStreak(nm);return'<button class="btn cr'+(on?' on':'')+'" data-ck="'+i+'"><span>'+(on?'✅':'⬜')+' '+esc(nm)+' heute</span><small>'+(n?n+(n===1?' Tag':' Tage')+' in Folge':'noch keine Serie')+'</small></button>'}).join('')+'</div>':''}
 function todayHtml(){
-  const t=typeOf(today),tot=dayTot(iso(today)),g=goalOf(),done=ckDone(iso(today)).filter(x=>S.chk.items.includes(x)).length,n=streak(),parts=['<b>'+(t==='Rest'?'Ruhetag':t+' heute')+'</b>'];
+  const t=typeOf(today),tot=dayTot(iso(today)),g=goalOf(),done=ckDone(iso(today)).filter(x=>S.chk.items.includes(x)).length,n=streak(),parts=['<b>'+(isSick(today)?'🤒 Krank':t==='Rest'?'Ruhetag':t+' heute')+'</b>'];
   if(tot.k>0||g.k)parts.push('🍽 '+Math.round(tot.k).toLocaleString('de-DE')+(g.k?' / '+Math.round(g.k).toLocaleString('de-DE'):'')+' kcal'+(tot.p>0||g.p?' · E '+Math.round(tot.p)+(g.p?' / '+Math.round(g.p):'')+' g':''));
   if(S.chk.items.length)parts.push('✅ '+done+'/'+S.chk.items.length);
   if(n)parts.push('🔥 '+n);
@@ -170,8 +171,11 @@ const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+Stri
 const pIso=s=>{const a=s.split('-');return new Date(+a[0],+a[1]-1,+a[2])};
 const dn=d=>Math.round(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())/864e5);
 let today=new Date(),wd=(today.getDay()+6)%7;
-const cyIdx=d=>{const n=S.cycle.length;return(((S.anchor.idx+dn(d)-dn(pIso(S.anchor.date)))%n)+n)%n};
-const typeOf=d=>S.cycle[cyIdx(d)];
+const sickEnd=r=>r.to?dn(pIso(r.to)):dn(today);
+const isSick=d=>{const n=dn(d);return(S.sick||[]).some(r=>n>=dn(pIso(r.from))&&n<=sickEnd(r))};
+const sickCount=d=>{const a=dn(pIso(S.anchor.date)),n=dn(d);let c=0;for(const r of(S.sick||[])){const lo=Math.max(dn(pIso(r.from)),a),hi=Math.min(sickEnd(r),n-1);if(hi>=lo)c+=hi-lo+1}return c};
+const cyIdx=d=>{const n=S.cycle.length;return(((S.anchor.idx+dn(d)-dn(pIso(S.anchor.date))-sickCount(d))%n)+n)%n};
+const typeOf=d=>((S.dt||{})[iso(d)])||S.cycle[cyIdx(d)];
 let off=0,sel=wd,view='log';
 const wdate=i=>{const d=new Date(today);d.setDate(d.getDate()-wd+off*7+i);return d};
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -198,12 +202,12 @@ function render(){
   if(view==='plan')return renderPlan();
   if(view==='fd')return renderFood();
   if(view==='st')return renderStats();
-  const cd=wdate(sel),date=iso(cd),type=typeOf(cd);
-  document.getElementById('d').textContent=LONG[sel]+', '+cd.toLocaleDateString('de-DE')+' – '+(type==='Rest'?'Ruhetag':type);
+  const cd=wdate(sel),date=iso(cd),type=typeOf(cd),sick=isSick(cd),skipEx=sick&&!logged(cd);
+  document.getElementById('d').textContent=LONG[sel]+', '+cd.toLocaleDateString('de-DE')+' – '+(sick?'Krank':type==='Rest'?'Ruhetag':type);
   let h=todayHtml()+'<div class="row" style="margin:0 0 8px;justify-content:space-between;align-items:center"><button class="btn" data-wk="-1">‹</button><span class="sub" style="margin:0">Woche ab '+wdate(0).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})+(off===0?' (diese)':'')+'</span><button class="btn" data-wk="1">›</button></div>';
-  h+='<div class="week">'+DAYS.map((n,i)=>{const d=wdate(i),t=typeOf(d);return'<button data-day="'+i+'" class="'+(i===sel?'on ':'')+(t==='Rest'?'rest ':'')+(logged(d)?'done':'')+'"><b>'+n+'</b><small>'+t+'</small></button>'}).join('')+'</div>';
-  h+=crHtml()+bkHtml();
-  if(type==='Rest')h+='<div class="restbox">Ruhetag. Erholen, essen, schlafen.</div>';
+  h+='<div class="week">'+DAYS.map((n,i)=>{const d=wdate(i),sk=isSick(d),t=sk?'Krank':typeOf(d);return'<button data-day="'+i+'" class="'+(i===sel?'on ':'')+(t==='Rest'||sk?'rest ':'')+(logged(d)?'done':'')+'"><b>'+n+'</b><small>'+t+'</small></button>'}).join('')+'</div>';
+  h+=crHtml()+bkHtml()+sickHtml(cd,sick);
+  if(skipEx){}else if(type==='Rest')h+='<div class="restbox">Ruhetag. Erholen, essen, schlafen.</div>';
   else exs(cd).forEach((ex,ei)=>{
     const A=(S.logs[date]||{})[ex],l=last(ex,date),a=A||initSets(ex,date),n=Math.max(a.length,1),wn=a.filter(x=>x&&x.wu).length;
     const lb=S.lb&&S.lb[ex],og=orig(cd,ei),isAdd=og===undefined;
@@ -212,8 +216,8 @@ function render(){
       h+='<div class="set"><span>'+(s+1)+'</span><div><div class="wc"><button class="btn st" data-st="'+ei+':'+s+':-1">−</button><input inputmode="decimal" data-e="'+ei+'" data-s="'+s+'" data-k="w" class="'+(v.auto?'auto':'')+'" placeholder="'+(p.w?esc(p.w):(lb?'lb':'kg'))+'" value="'+esc(v.w||'')+'"><button class="btn st" data-st="'+ei+':'+s+':1">+</button></div>'+(lb?'<small class="cv">'+(v.w?toLb(v.w)+' lb':'in lb eingeben')+'</small>':'')+'</div><i>×</i><input inputmode="numeric" data-e="'+ei+'" data-s="'+s+'" data-k="r" placeholder="'+(p.r||(a[s-1]&&a[s-1].r)||'Wdh')+'" value="'+esc(v.r||'')+'"><button class="btn wu'+(v.wu?' on':'')+'" data-wu="'+ei+':'+s+'">W</button></div>'}
     h+='<div class="row" style="flex-wrap:wrap"><button class="btn" data-add="'+ei+'">+ Satz</button><button class="btn" data-del="'+ei+'">− Satz</button>'+(wn?'<button class="btn" data-wpp="'+ei+'">+ Aufwärmsatz</button><button class="btn" data-wpm="'+ei+'">− Aufwärmsatz</button>':'<button class="btn" data-wp="'+ei+'">🔥 Aufwärmen</button>')+''+(l.length?'<button class="btn" data-cp="'+ei+'" style="flex:1">↺ Wie letztes Mal</button>':'')+'</div></section>';
   });
-  if(type!=='Rest')h+=addExHtml();
-  if(type!=='Rest'){const tm=tmOf(date);if(tm&&tm.e)h+=summaryHtml(date);else if(logged(cd))h+='<button class="btn pri" style="width:100%;margin:2px 0 14px;padding:14px" data-fin="1">Training beenden</button>'}
+  if(type!=='Rest'&&!skipEx)h+=addExHtml();
+  if(type!=='Rest'&&!skipEx){const tm=tmOf(date);if(tm&&tm.e)h+=summaryHtml(date);else if(logged(cd))h+='<button class="btn pri" style="width:100%;margin:2px 0 14px;padding:14px" data-fin="1">Training beenden</button>'}
   app.innerHTML=h;
 }
 let calOff=0,picked=[],P=[];
@@ -221,11 +225,19 @@ try{P=JSON.parse(localStorage.getItem('tlp')||'[]')}catch(e){}
 function savePh(){try{localStorage.setItem('tlp',JSON.stringify(P));return true}catch(e){alert('Speicher voll. Lösche ein paar alte Fotos.');return false}}
 function readPhoto(f,cb){const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,720/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);cb(c.toDataURL('image/jpeg',0.6))};im.onerror=()=>alert('Foto konnte nicht gelesen werden.');im.src=r.result};r.readAsDataURL(f)}
 const trained=d=>{const L=S.logs[iso(d)];return!!L&&Object.values(L).some(a=>a.some(work))};
-function streak(){const ks=Object.keys(S.logs).filter(k=>trained(pIso(k))).sort();if(!ks.length)return 0;const first=dn(pIso(ks[0]));let n=0;for(let k=0;k<400;k++){const d=new Date(today);d.setDate(d.getDate()-k);if(dn(d)<first)break;if(trained(d)){n++;continue}if(typeOf(d)==='Rest'||k===0)continue;break}return n}
+function streak(){const ks=Object.keys(S.logs).filter(k=>trained(pIso(k))).sort();if(!ks.length)return 0;const first=dn(pIso(ks[0]));let n=0;for(let k=0;k<400;k++){const d=new Date(today);d.setDate(d.getDate()-k);if(dn(d)<first)break;if(trained(d)){n++;continue}if(typeOf(d)==='Rest'||isSick(d)||k===0)continue;break}return n}
+function unsickDay(k){const n=dn(pIso(k)),out=[],dd=x=>{const t=pIso(k);t.setDate(t.getDate()+x);return iso(t)};for(const r of(S.sick||[])){const lo=dn(pIso(r.from)),hi=sickEnd(r);if(n<lo||n>hi){out.push(r);continue}if(r.to==null&&n===dn(today)){if(lo<n)out.push({from:r.from,to:dd(-1)});continue}if(lo<n)out.push({from:r.from,to:dd(-1)});if(hi>n)out.push({from:dd(1),to:r.to})}S.sick=out}
+function sickHtml(cd,sick){
+  const k=iso(cd);
+  if(sick){const nt=k===iso(today)?(()=>{const t=new Date(today);t.setDate(t.getDate()+1);return typeOf(t)})():null;
+    return'<section class="ex"><h2>🤒 Krank</h2><div class="cv" style="text-align:left;font-size:15px">Gute Besserung! Deine Serie und dein Fortschritt bleiben erhalten, der Zyklus pausiert'+(nt?' (danach kommt <b>'+(nt==='Rest'?'Ruhetag':nt)+'</b>)':'')+'. Starte nach der Pause lieber etwas leichter.</div><div class="row"><button class="btn pri" data-fit="1" style="flex:1">'+(k===iso(today)?'Wieder fit':'Diesen Tag nicht mehr als krank zählen')+'</button></div></section>'}
+  if(dn(cd)>dn(today))return'';
+  return'<div class="row" style="margin:0 0 12px"><button class="btn chip" data-sick="1">🤒 Krank melden</button></div>';
+}
 function calHtml(){
   const m=new Date(today.getFullYear(),today.getMonth()+calOff,1),first=(m.getDay()+6)%7,dim=new Date(m.getFullYear(),m.getMonth()+1,0).getDate();
   let cells=DAYS.map(x=>'<b>'+x+'</b>').join('')+'<div></div>'.repeat(first),cnt=0;
-  for(let day=1;day<=dim;day++){const d=new Date(m.getFullYear(),m.getMonth(),day),t=trained(d);if(t)cnt++;cells+='<div class="cd'+(t?' on':'')+(iso(d)===iso(today)?' td':'')+'">'+day+'</div>'}
+  for(let day=1;day<=dim;day++){const d=new Date(m.getFullYear(),m.getMonth(),day),t=trained(d);if(t)cnt++;cells+='<div class="cd'+(t?' on':'')+(!t&&isSick(d)?' sk':'')+(iso(d)===iso(today)?' td':'')+'">'+day+'</div>'}
   const n=streak();
   return sec('kal','Kalender','<div class="cv" style="text-align:left;font-size:16px">🔥 '+n+(n===1?' Training':' Trainings')+' in Folge (Ruhetage zählen nicht als Pause)</div><div class="row" style="justify-content:space-between;align-items:center"><button class="btn" data-cal="-1">‹</button><span>'+m.toLocaleDateString('de-DE',{month:'long',year:'numeric'})+' · '+cnt+(cnt===1?' Training':' Trainings')+'</span><button class="btn" data-cal="1">›</button></div><div class="cal">'+cells+'</div>');
 }
@@ -281,6 +293,8 @@ function monthReview(){
   h+='<div class="macros">'+tile('Trainings',cur.tr,'',prev.tr?sgn(cur.tr-prev.tr)+' zum Vormonat':'')+tile('Sätze',cur.sets,'',prev.sets?sgn(Math.round((cur.sets/prev.sets-1)*100))+' %':'')+tile('Volumen',fmt(r1(cur.vol/1000)),'t',prev.vol?sgn(Math.round((cur.vol/prev.vol-1)*100))+' %':'')+'</div>';
   const cv='<div class="cv" style="text-align:left;font-size:15px;margin:6px 0">',out=[];
   const prs=Object.keys(S.prh||{}).filter(k=>k.startsWith(pf)).flatMap(k=>S.prh[k]);
+  let skd=0;for(let d=1;d<=dim;d++)if(isSick(new Date(y,mo,d)))skd++;
+  if(skd)out.push('🤒 '+skd+(skd===1?' Krankheitstag':' Krankheitstage'));
   if(prs.length)out.push('🏆 '+prs.length+(prs.length===1?' neuer Bestwert':' neue Bestwerte')+': '+[...new Set(prs)].slice(0,5).map(esc).join(', '));
   const byEx={};Object.keys(S.logs).filter(k=>k.startsWith(pf)).sort().forEach(k=>{for(const ex in S.logs[k]){const ws=S.logs[k][ex].filter(work);if(ws.length)(byEx[ex]=byEx[ex]||[]).push(Math.max(...ws.map(x=>num(x.w))))}});
   const best=Object.entries(byEx).filter(([,a])=>a.length>=2).map(([ex,a])=>[ex,a[a.length-1]-a[0],a[0],a[a.length-1]]).filter(x=>x[1]>0).sort((x,y)=>y[1]-x[1]).slice(0,3);
@@ -396,7 +410,7 @@ function renderPlan(){
   h+=sec('bk','Backup','<textarea id="bk" placeholder="Hier steht dein Backup oder du fügst eins zum Importieren ein"></textarea><div class="row"><button class="btn" id="cpb" style="flex:1">Backup kopieren</button><button class="btn" id="ex">Anzeigen</button><button class="btn" id="im">Import</button></div><div class="cv" style="text-align:left;margin-top:8px">'+(S.bkd?'Letztes Backup: '+pIso(S.bkd).toLocaleDateString('de-DE'):'Noch kein Backup kopiert.')+' Fotos sind nicht enthalten.</div>');
   app.innerHTML=h;
 }
-function setToday(i){S.anchor={date:iso(today),idx:i};save()}
+function setToday(i){S.anchor={date:iso(today),idx:i};if(S.dt)delete S.dt[iso(today)];save()}
 app.addEventListener('input',e=>{
   const t=e.target,d=t.dataset;
   if(d.k){const cd=wdate(sel),ex=exs(cd)[+d.e],date=iso(cd);markStart(date);const L=S.logs[date]=S.logs[date]||{};const a=L[ex]=L[ex]||initSets(ex,date);const i=+d.s;while(a.length<=i)a.push({});if(d.k==='w'&&S.lb&&S.lb[ex])return;a[i][d.k]=t.value;delete a[i].auto;t.closest('.set').querySelectorAll('input.auto').forEach(x=>x.classList.remove('auto'));save()}
@@ -447,6 +461,8 @@ app.addEventListener('click',e=>{
   else if(d.tdel!==undefined){snap('Mahlzeit gelöscht');S.tpl=(S.tpl||[]).filter(t=>String(t.id)!==d.tdel);save();renderFood()}
   else if(d.mr!==undefined){mrOff=Math.min(0,mrOff+ +d.mr);renderStats()}
   else if(d.rename!==undefined){const a=document.getElementById('rnold').value,b=(document.getElementById('rnnew').value||'').trim();if(renameEx(a,b)){toast('„'+a+'“ heißt jetzt „'+b+'“. Der Verlauf bleibt erhalten.');rerender()}}
+  else if(d.sick!==undefined){const k=iso(wdate(sel));snap('Krank gemeldet');S.sick=S.sick||[];S.sick.push(k===iso(today)?{from:k,to:null}:{from:k,to:k});save();render()}
+  else if(d.fit!==undefined){snap('Als gesund markiert');unsickDay(iso(wdate(sel)));save();render()}
   else if(d.tg!==undefined){S.ui=S.ui||{};S.ui[d.tg]=!isOpen(d.tg);save();rerender()}
   else if(d.st!==undefined){const [ei,si,dir]=d.st.split(':').map(Number),cd=wdate(sel),ex=exs(cd)[ei],date=iso(cd),l=last(ex,date);markStart(date);const L=S.logs[date]=S.logs[date]||{};const a=L[ex]=L[ex]||initSets(ex,date);while(a.length<=si)a.push({});const lbm=S.lb&&S.lb[ex],stp={step:2.5,...S.prog}.step;let cur=num(a[si].w);if(!cur&&l.length)cur=num((l[si]||l[l.length-1]||{}).w);const nv=lbm?toKg(Math.max(0,(toLb(cur||0)||0)+dir*5)):Math.max(0,Math.round((cur+dir*stp)*100)/100);a[si].w=nv?String(nv):'';delete a[si].auto;save();checkPR(ex,si,date,ei);render()}
   else if(d.sw!==undefined){swapOpen=swapOpen===+d.sw?-1:+d.sw;render()}
